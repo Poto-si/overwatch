@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <script src="/theme.js"></script>
+  <title>Poto.si | Overwatch</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23132120'/%3E%3Cpath d='M8 23V9h9l7 7-7 7z' fill='none' stroke='%2399e4bb' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="preload" href="/assets/inter-tight-800.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/theme.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand wordmark" href="/" aria-label="Poto.si | Overwatch home"><span>Poto<span class="brand-dot">.</span>si</span><span class="brand-separator" aria-hidden="true">|</span><span>Overwatch</span></a>
+      <div class="top-meta"><details id="appearance-menu" class="appearance-menu">
+  <summary><span class="appearance-dot" aria-hidden="true"></span>Appearance<span class="appearance-chevron" aria-hidden="true">⌄</span></summary>
+  <div class="appearance-panel">
+    <fieldset class="appearance-modes"><legend>Theme</legend>
+      <label><input type="radio" name="appearance-theme" value="dark" checked><span>Dark</span></label>
+      <label><input type="radio" name="appearance-theme" value="light"><span>Light</span></label>
+      <label><input type="radio" name="appearance-theme" value="system"><span>System</span></label>
+    </fieldset>
+    <fieldset class="appearance-accents"><legend>Accent color</legend>
+      <label data-preset="mint"><input type="radio" name="appearance-accent" value="mint" checked><span><i aria-hidden="true"></i>Mint</span></label>
+      <label data-preset="sky"><input type="radio" name="appearance-accent" value="sky"><span><i aria-hidden="true"></i>Sky</span></label>
+      <label data-preset="violet"><input type="radio" name="appearance-accent" value="violet"><span><i aria-hidden="true"></i>Violet</span></label>
+      <label data-preset="amber"><input type="radio" name="appearance-accent" value="amber"><span><i aria-hidden="true"></i>Amber</span></label>
+      <label data-preset="rose"><input type="radio" name="appearance-accent" value="rose"><span><i aria-hidden="true"></i>Rose</span></label>
+    </fieldset>
+  </div>
+</details><span class="readonly">READ ONLY</span><span id="clock">—</span></div>
+    </header>
+    <main>
+      <div class="page-heading">
+        <div><div class="eyebrow">YOUR LOCAL AGENT WORKSPACE</div><h1 class="overwatch-title">Overwatch<span class="heading-dot">.</span></h1><p class="subtitle">See the work in motion. Follow the context. Keep track of every token.</p></div>
+        <div class="connection-controls"><div id="connection" class="connection"><span class="pulse"></span><span id="connection-label">Connecting</span></div><button id="pause" class="button" type="button" aria-pressed="false">Pause view</button></div>
+      </div>
+      <div id="notice" class="notice" role="status">Connecting to the local observer…</div>
+      <section class="stats" aria-label="Observed agent summary">
+        <article class="stat"><span class="stat-label">OBSERVED AGENTS <span class="stat-icon">↗</span></span><strong id="stat-agents">—</strong><span id="stat-scope" class="stat-caption">Recent sessions</span></article>
+        <article class="stat"><span class="stat-label">WORKING / WAITING <span class="stat-icon green">●</span></span><strong id="stat-active">—</strong><span class="stat-caption">Inferred from lifecycle events</span></article>
+        <article class="stat"><span class="stat-label">RECORDED TOKENS <span class="stat-icon">◈</span></span><strong id="stat-tokens">—</strong><span id="stat-token-caption" class="stat-caption">Input + output; not cost or quota</span></article>
+        <article class="stat"><span class="stat-label">CACHED INPUT <span class="stat-icon">↺</span></span><strong id="stat-cache">—</strong><span class="stat-caption">A subset of input tokens</span></article>
+      </section>
+      <section class="workspace" aria-label="Agent workspace">
+        <div class="agent-panel panel">
+          <div class="panel-heading"><div><h2>Agent activity</h2><span id="result-count" class="small muted">Waiting for observations</span></div><div class="activity-controls"><div class="view-switch" role="group" aria-label="Agent view"><button id="view-squares" type="button" aria-pressed="true" aria-controls="squares-view"><span aria-hidden="true">▦</span> Squares</button><button id="view-table" type="button" aria-pressed="false" aria-controls="table-view"><span aria-hidden="true">☷</span> Table</button></div><label class="checkbox"><input id="active-only" type="checkbox"> Open turns only</label></div></div>
+          <div class="filters">
+            <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search agents, models, projects…" aria-label="Search agents"></label>
+            <select id="project-filter" aria-label="Filter by project"><option value="">All projects</option></select>
+            <select id="status-filter" aria-label="Filter by status"><option value="">All statuses</option><option value="running">Working</option><option value="waiting">Waiting</option><option value="idle">Idle</option><option value="interrupted">Interrupted</option><option value="failed">Failed</option><option value="unknown">Unknown</option></select>
+          </div>
+          <div id="squares-view" class="squares-view" role="region" aria-label="Agent status squares">
+            <div class="square-legend" aria-label="Agent status legend"><span class="running"><i aria-hidden="true">▶</i> Working</span><span class="waiting"><i aria-hidden="true">Ⅱ</i> Waiting</span><span class="idle"><i aria-hidden="true">○</i> Idle</span><span class="interrupted"><i aria-hidden="true">×</i> Interrupted</span><span class="failed"><i aria-hidden="true">!</i> Failed</span><span class="unknown"><i aria-hidden="true">?</i> Unknown</span></div>
+            <div class="square-board"><div class="square-board-heading"><span>OBSERVED SESSIONS</span><span>1 square = 1 agent</span></div><div id="square-groups"></div></div>
+            <div id="square-caption" class="square-caption">Select a square to inspect its agent. Token counts appear inside each square.</div>
+          </div>
+          <div id="table-view" class="table-scroll" hidden><table><thead><tr><th scope="col">AGENT / SESSION</th><th scope="col">STATUS</th><th scope="col" class="number">TOKENS</th><th scope="col" class="number">LAST ACTIVITY</th></tr></thead><tbody id="agent-rows"></tbody></table></div>
+          <div id="empty" class="empty" hidden><span class="empty-icon" aria-hidden="true">⌁</span><h3>No matching agents</h3><p>Adjust your filters, start a Codex session, or run the dashboard with <code>--demo</code>.</p></div>
+          <div class="panel-footer"><span><span class="tiny-dot"></span> Observation, not orchestration</span><span id="updated">Awaiting first snapshot</span></div>
+        </div>
+        <aside class="detail-panel panel" aria-label="Selected agent details">
+          <div id="detail-empty" class="detail-empty"><span class="detail-symbol" aria-hidden="true">◎</span><h2>A closer look</h2><p>Select an agent to inspect its model, token breakdown, and recent activity.</p></div>
+          <div id="detail" hidden>
+            <div class="detail-heading"><span class="eyebrow">AGENT DETAILS</span><span id="detail-status" class="status"></span></div>
+            <h2 id="detail-name"></h2><p id="detail-reason" class="detail-reason"></p>
+            <dl class="metadata"><div><dt>Model</dt><dd id="detail-model"></dd></div><div><dt>Provider</dt><dd id="detail-provider"></dd></div><div><dt>Project</dt><dd id="detail-project"></dd></div><div><dt>Source</dt><dd id="detail-source"></dd></div><div><dt>Session ID</dt><dd id="detail-id" class="mono"></dd></div><div><dt>Parent</dt><dd id="detail-parent" class="mono"></dd></div><div><dt>Last turn</dt><dd id="detail-duration"></dd></div></dl>
+            <div class="section-heading"><h3>Token accounting</h3><span id="detail-total" class="mono"></span></div>
+            <div class="token-bar" aria-hidden="true"><span id="bar-input" class="segment input"></span><span id="bar-cached" class="segment cached"></span><span id="bar-output" class="segment output"></span></div>
+            <dl class="token-legend"><div><dt><i class="key input"></i>Uncached input</dt><dd id="detail-input"></dd></div><div><dt><i class="key cached"></i>Cached input</dt><dd id="detail-cached"></dd></div><div><dt><i class="key output"></i>Output</dt><dd id="detail-output"></dd></div><div><dt>Reasoning <span class="muted">(included in output)</span></dt><dd id="detail-reasoning"></dd></div></dl>
+            <div class="context-box"><div><span>Last request / context window</span><strong id="detail-context">Unknown</strong></div><progress id="context-progress" max="100" value="0" aria-label="Last request size relative to context window"></progress><p>This is the last reported request size, not cumulative usage or a live context measurement.</p></div>
+            <div class="section-heading"><h3>Recent activity</h3><span class="small muted">Metadata only</span></div><ol id="activity" class="activity"></ol>
+          </div>
+        </aside>
+      </section>
+      <footer class="page-footer"><span>Poto.si <span class="muted">/ OVERWATCH</span></span><span>Local data · No model calls · No agent controls</span></footer>
+    </main>
+  </div>
+</body>
+</html>
