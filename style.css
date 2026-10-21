@@ -51,7 +51,7 @@ main{padding:42px 42px 24px}.page-heading{display:flex;justify-content:space-bet
 @font-face{font-family:"Inter Tight";font-style:normal;font-weight:800;font-display:swap;src:url("/assets/inter-tight-800.ttf") format("truetype")}
 .brand.wordmark{font-family:"Inter Tight",sans-serif;font-size:32px;font-weight:800;letter-spacing:-.07em;line-height:1;gap:12px;color:var(--text);text-decoration:none;white-space:nowrap}
 .wordmark .brand-dot{color:var(--accent)}
-.wordmark .brand-separator{color:var(--muted);font-size:25px;letter-spacing:0;opacity:.65}
+.wordmark .brand-separator{color:var(--muted);font-size:15px;letter-spacing:0;opacity:.65}
 .page-heading .overwatch-title{font-family:"Inter Tight",sans-serif;font-weight:800;letter-spacing:-.07em}
 @media(max-width:1100px){.brand.wordmark{font-size:29px;gap:10px}.wordmark .brand-separator{font-size:23px}}
 @media(max-width:520px){.brand.wordmark{font-size:26px;gap:8px}.wordmark .brand-separator{font-size:21px}}
