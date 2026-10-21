@@ -168,10 +168,11 @@ function renderSquares(agents) {
     const working = members.filter(a => a.status === "running").length;
     heading.append(name, node("span", "square-group-count", members.length + " agents" + (working ? " · " + working + " working" : "")));
     const grid = node("div", "square-grid");
+    let subagentStack = null;
     for (const agent of members) {
       const status = Object.hasOwn(labels, agent.status) ? agent.status : "unknown";
       const selected = state.selected === agent.id;
-      const tile = node("button", "agent-square " + status + (selected ? " selected" : ""));
+      const tile = node("button", "agent-square " + status + (agent.parent_id ? " subagent-square" : "") + (selected ? " selected" : ""));
       tile.type = "button";
       tile.dataset.agentId = agent.id;
       tile.setAttribute("aria-pressed", String(selected));
@@ -188,7 +189,17 @@ function renderSquares(agents) {
       tile.addEventListener("mouseenter", () => caption(agent));
       tile.addEventListener("focus", () => caption(agent));
       tile.addEventListener("click", () => { state.selected = agent.id; render(); });
-      grid.append(tile);
+      if (agent.parent_id) {
+        // Fill each pair top to bottom before starting the next column.
+        if (!subagentStack || subagentStack.childElementCount === 2) {
+          subagentStack = node("div", "subagent-stack");
+          grid.append(subagentStack);
+        }
+        subagentStack.append(tile);
+      } else {
+        subagentStack = null;
+        grid.append(tile);
+      }
     }
     group.append(heading, grid);
     fragment.append(group);
