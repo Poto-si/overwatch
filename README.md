@@ -92,73 +92,13 @@ on `127.0.0.1`. Open the matching local port in the browser.
 
 ## How it works
 
-Python lives in `src/overwatch/`; the dashboard is packaged from
-`src/overwatch/web/`, including its local fonts and icons. `server.py` remains a
-repository-root launcher for existing workflows, while the installed
-`overwatch` command starts the same application.
+Overwatch reads the Codex and Claude Code session logs on your computer and
+refreshes the dashboard as new activity is recorded. Use the platform selector
+to switch between them and inspect sessions, subagents, and recorded usage.
 
-The Python modules separate usage accounting (`usage.py`), Codex and Claude
-transcript readers (`providers/codex.py`, `providers/claude.py`), metadata
-(`metadata.py`), sample observations (`demo.py`), refresh coordination
-(`observer.py`), HTTP serving (`http.py`), and command-line startup (`cli.py`).
-
-The HTTP server incrementally reads session transcripts, extracts lifecycle and usage
-events, and serves `/api/snapshot?provider=codex` and
-`/api/snapshot?provider=claude` alongside an explicit list of static assets.
-`/api/snapshot` defaults to Codex for compatibility. Independent refresh workers
-keep the two sources separate.
-Partial trailing records are retried after the producer finishes writing.
-Codex labels and parent/child links come from an optional local `state_*.sqlite` database
-opened in read-only immutable mode, without creating SQLite sidecar files.
-Metadata in an uncheckpointed WAL may not yet be visible.
-
-Claude Code sessions come from `projects/<project>/<session>.jsonl`; recorded
-subagents come from `<session>/subagents/agent-<agent>.jsonl`. Subagents retain
-separate identities and usage, linked to their parent session. The reader uses
-only transcript metadata and event types, without retaining message contents.
-
-`web/app.js` polls the snapshot endpoint and renders the dashboard. `web/theme.js`
-and `web/theme.css` manage appearance. All assets, including the wordmark font,
-are served locally.
-
-### Status and usage limits
-
-**Status is inferred from logs, not authoritative process liveness.** Working
-means a turn started with recent recorded activity. Idle means the last recorded
-turn completed, not that the process exited. An open turn becomes Unknown after
-120 seconds without activity by default. Waiting requires an explicit recorded
-waiting event. Long tool calls, exited processes, and lost connections cannot
-always be distinguished from these logs.
-
-Displayed token totals are input plus output. Cached input is included in input;
-reasoning output is included in output. Attributed thread usage takes precedence
-over legacy counters. Known inherited history and foreign-thread usage are
-excluded, but unattributed or runtime-aggregated counters may overlap. These
-observations are not billing, subscription quota, or a live context measurement.
-
-Claude usage is accumulated per API message ID, so repeated streamed content
-blocks do not multiply the same request's usage. Total input includes uncached
-input, cache creation, and cache reads, following [Anthropic's token accounting](https://platform.claude.com/docs/en/build-with-claude/prompt-caching).
-The cached-input subset represents cache reads. Separate reasoning usage and
-context-window capacity display as unknown when not recorded. A user message or
-tool result opens a turn; an assistant end-of-turn marker or turn-duration event
-closes it. Tool calls keep the turn open. Claude waiting/approval states are not
-inferred from tool contents; an inactive open turn becomes Unknown.
-
-Overwatch observes only the selected transcript files. It is not a global
-inventory of every agent process or account. Transcript and SQLite formats are
-internal; unfamiliar versions may yield incomplete observations.
-
-## Privacy and boundaries
-
-The server binds to **127.0.0.1** by default, restricts requests to local same-origin access,
-and accepts no mutation endpoints. It never spawns, resumes, messages, or
-controls agents, and does not modify either platform's logs or databases.
-
-Activity includes event labels and tool names, without prompt text, reasoning,
-tool arguments, credentials, or tool results. Thread titles and local paths can
-still be sensitive, so keep the dashboard on your own machine. There is no CDN,
-external font loading, analytics, or telemetry.
+Read more about the [technical architecture](docs/architecture.md),
+[status and usage limits](docs/status-and-usage.md), and
+[privacy and boundaries](docs/privacy.md).
 
 ## Development
 
