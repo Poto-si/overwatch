@@ -2,7 +2,19 @@
 
 const $ = id => document.getElementById(id);
 const labels = {running: "Working", waiting: "Waiting", idle: "Idle", interrupted: "Interrupted", failed: "Failed", unknown: "Unknown"};
-const state = {agents: [], snapshot: null, selected: null, collapsed: new Set(), paused: false, fetching: false, offline: false, view: "squares"};
+const state = {agents: [], snapshot: null, selected: null, collapsed: new Set(), paused: false, fetching: false, offline: false, view: "squares", provider: "codex"};
+const providerKey = "potosi.overwatch.provider";
+const validProvider = value => value === "claude" ? "claude" : "codex";
+try { state.provider = validProvider(localStorage.getItem(providerKey)); } catch (_) { /* Storage is optional. */ }
+function syncProviderControl() {
+  const label = state.provider === "claude" ? "Claude" : "Codex";
+  $("provider-label").textContent = label;
+  $("provider-logo").dataset.provider = state.provider;
+  $("provider-menu").querySelector("summary").setAttribute("aria-label", "Agent platform: " + label);
+  document.querySelectorAll('input[name="agent-provider"]').forEach(input => { input.checked = input.value === state.provider; });
+}
+syncProviderControl();
+const providerLabel = () => state.provider === "claude" ? "Claude Code" : "Codex";
 const symbols = {running: "▶", waiting: "Ⅱ", idle: "○", interrupted: "×", failed: "!", unknown: "?"};
 const compact = new Intl.NumberFormat("en", {notation: "compact", maximumFractionDigits: 1});
 const exact = new Intl.NumberFormat("en");
@@ -233,7 +245,7 @@ function renderDetail() {
     $("detail-" + key).textContent = t ? exact.format(value) : "—";
     $("bar-" + key).style.width = (t?.total_tokens ? value / t.total_tokens * 100 : 0) + "%";
   }
-  $("detail-reasoning").textContent = t ? exact.format(t.reasoning_output_tokens) : "—";
+  $("detail-reasoning").textContent = t?.reasoning_output_tokens == null ? "Not recorded" : exact.format(t.reasoning_output_tokens);
   const window = Number(agent.context_window);
   const request = agent.last_request?.total_tokens;
   const ratio = window > 0 && request != null ? request / window * 100 : null;
@@ -268,7 +280,7 @@ function render() {
     $("updated").textContent = "Snapshot · " + ago(snapshot.generated_at);
     const notice = $("notice");
     notice.className = "notice" + (snapshot.mode === "demo" ? " demo" : "");
-    const parts = snapshot.mode === "demo" ? ["DEMO · Sample agents. No real session data is being read."] : ["Read-only Codex log observations. “Working” is inferred; stale open turns become “Unknown”."];
+    const parts = snapshot.mode === "demo" ? ["DEMO · Sample agents. No real session data is being read."] : ["Read-only " + providerLabel() + " log observations. “Working” is inferred; stale open turns become “Unknown”."];
     if (snapshot.discovered > snapshot.limit) parts.push("Showing the " + snapshot.limit + " most recently modified rollout files of " + snapshot.discovered + ".");
     parts.push(...(snapshot.warnings || []));
     if (state.offline) parts.unshift("Observer disconnected. This is the last successfully received snapshot.");
@@ -282,10 +294,12 @@ function render() {
 async function refresh() {
   if (state.paused || state.fetching) return;
   state.fetching = true;
+  const provider = state.provider;
   try {
-    const response = await fetch("/api/snapshot", {cache: "no-store", signal: AbortSignal.timeout(10000)});
+    const response = await fetch("/api/snapshot?provider=" + encodeURIComponent(provider), {cache: "no-store", signal: AbortSignal.timeout(10000)});
     if (!response.ok) throw new Error("Snapshot unavailable");
     const snapshot = await response.json();
+    if (state.provider !== provider) return;
     if (snapshot.loading) { $("notice").textContent = "Reading recent session logs. The first snapshot can take a moment…"; return; }
     state.snapshot = snapshot;
     state.agents = Array.isArray(snapshot.agents) ? snapshot.agents : [];
@@ -294,11 +308,49 @@ async function refresh() {
     updateProjects();
     render();
   } catch (_) {
+    if (state.provider !== provider) return;
     state.offline = true;
     if (!state.snapshot) { $("notice").className = "notice error"; $("notice").textContent = "Cannot reach the local observer. Start it with python3 server.py, then open its printed URL."; }
     render();
-  } finally { state.fetching = false; }
+  } finally {
+    state.fetching = false;
+    if (state.provider !== provider) refresh();
+  }
 }
+function selectProvider(value) {
+  const provider = validProvider(value);
+  if (provider === state.provider) return;
+  state.provider = provider;
+  syncProviderControl();
+  state.agents = [];
+  state.snapshot = null;
+  state.selected = null;
+  state.collapsed.clear();
+  state.offline = false;
+  state.paused = false;
+  $("pause").textContent = "Pause view";
+  $("pause").setAttribute("aria-pressed", "false");
+  $("search").value = "";
+  $("status-filter").value = "";
+  $("active-only").checked = false;
+  updateProjects();
+  render();
+  $("notice").className = "notice";
+  $("notice").textContent = "Connecting to " + providerLabel() + " observations…";
+  $("connection-label").textContent = "Connecting";
+  $("updated").textContent = "Awaiting first snapshot";
+  try { localStorage.setItem(providerKey, provider); } catch (_) { /* Storage is optional. */ }
+  refresh();
+}
+document.querySelectorAll('input[name="agent-provider"]').forEach(input => input.addEventListener("change", () => {
+  if (!input.checked) return;
+  selectProvider(input.value);
+  $("provider-menu").open = false;
+  $("provider-menu").querySelector("summary").focus();
+}));
+window.addEventListener("storage", event => {
+  if (event.key === providerKey || event.key === null) selectProvider(event.newValue);
+});
 for (const id of ["search", "project-filter", "status-filter", "active-only"]) $(id).addEventListener(id === "search" ? "input" : "change", render);
 $("view-squares").addEventListener("click", () => setView("squares"));
 $("view-table").addEventListener("click", () => setView("table"));

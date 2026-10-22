@@ -32,6 +32,14 @@
       <label data-preset="rose"><input type="radio" name="appearance-accent" value="rose"><span><i aria-hidden="true"></i>Rose</span></label>
     </fieldset>
   </div>
+</details><details id="provider-menu" class="appearance-menu provider-menu">
+  <summary aria-label="Agent platform: Codex"><span id="provider-logo" class="provider-logo" data-provider="codex" aria-hidden="true"></span><span id="provider-label">Codex</span><span class="appearance-chevron" aria-hidden="true">⌄</span></summary>
+  <div class="appearance-panel provider-panel">
+    <fieldset class="provider-options"><legend>Agent platform</legend>
+      <label><input type="radio" name="agent-provider" value="codex" checked><span class="provider-option"><i class="provider-logo" data-provider="codex" aria-hidden="true"></i><span class="provider-copy"><strong>Codex</strong><small>OpenAI</small></span><i class="provider-check" aria-hidden="true">✓</i></span></label>
+      <label><input type="radio" name="agent-provider" value="claude"><span class="provider-option"><i class="provider-logo" data-provider="claude" aria-hidden="true"></i><span class="provider-copy"><strong>Claude</strong><small>Anthropic</small></span><i class="provider-check" aria-hidden="true">✓</i></span></label>
+    </fieldset>
+  </div>
 </details></div>
     </header>
     <main>
@@ -60,7 +68,7 @@
             <div id="square-caption" class="square-caption">Select a square to inspect its agent. Token counts appear inside each square.</div>
           </div>
           <div id="table-view" class="table-scroll" hidden><table><thead><tr><th scope="col">AGENT / SESSION</th><th scope="col">STATUS</th><th scope="col" class="number">TOKENS</th><th scope="col" class="number">LAST ACTIVITY</th></tr></thead><tbody id="agent-rows"></tbody></table></div>
-          <div id="empty" class="empty" hidden><span class="empty-icon" aria-hidden="true">⌁</span><h3>No matching agents</h3><p>Adjust your filters, start a Codex session, or run the dashboard with <code>--demo</code>.</p></div>
+          <div id="empty" class="empty" hidden><span class="empty-icon" aria-hidden="true">⌁</span><h3>No matching agents</h3><p>Adjust your filters, start a session in the selected platform, or run the dashboard with <code>--demo</code>.</p></div>
           <div class="panel-footer"><span><span class="tiny-dot"></span> Observation, not orchestration</span><span id="updated">Awaiting first snapshot</span></div>
         </div>
         <aside class="detail-panel panel" aria-label="Selected agent details">

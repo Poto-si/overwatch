@@ -60,3 +60,6 @@ main{padding:42px 42px 24px}.page-heading{display:flex;justify-content:space-bet
 .page-heading .overwatch-title{font-family:"Inter Tight",sans-serif;font-weight:800;letter-spacing:-.07em}
 @media(max-width:1100px){.brand.wordmark{font-size:29px;gap:10px}}
 @media(max-width:520px){.brand.wordmark{font-size:26px;gap:8px}}
+
+.top-meta{position:relative;gap:10px}
+@media(max-width:520px){.topbar{flex-wrap:wrap}.top-meta{margin-left:auto}.top-meta>.appearance-menu:first-child{position:static}}

@@ -1,6 +1,6 @@
 "use strict";
 
-// Apply saved appearance before styles load on either page.
+// Apply saved appearance before styles load.
 (() => {
   const themeKey = "potosi.agents-dashboard.theme";
   const accentKey = "potosi.agents-dashboard.accent";
@@ -49,13 +49,16 @@
       apply();
       save(accentKey, accent);
     }));
-    const menu = document.getElementById("appearance-menu");
-    if (!menu) return;
+    const menus = [...document.querySelectorAll(".appearance-menu")];
+    for (const menu of menus) menu.addEventListener("toggle", () => {
+      if (menu.open) for (const other of menus) if (other !== menu) other.open = false;
+    });
     document.addEventListener("click", event => {
-      if (menu.open && !menu.contains(event.target)) menu.open = false;
+      for (const menu of menus) if (menu.open && !menu.contains(event.target)) menu.open = false;
     });
     document.addEventListener("keydown", event => {
-      if (event.key === "Escape" && menu.open) {
+      if (event.key !== "Escape") return;
+      for (const menu of menus) if (menu.open) {
         menu.open = false;
         menu.querySelector("summary")?.focus();
       }

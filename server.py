@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only local Codex observer. Python standard library; no model/API calls."""
+"""Read-only local Codex and Claude Code observer. Python standard library; no model/API calls."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 import sqlite3
 import threading
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 ASSETS = Path(__file__).resolve().parent
 MAX_LINE = 8 * 1024 * 1024
@@ -216,6 +216,111 @@ class Rollout:
         }
 
 
+class ClaudeRollout(Rollout):
+    """Read Claude Code transcripts without retaining prompts or tool payloads."""
+
+    def __init__(self, path):
+        super().__init__(path)
+        self.provider = "anthropic"
+        self.is_subagent = path.parent.name == "subagents"
+        self.session_id = path.parent.parent.name if self.is_subagent else path.stem
+        self.agent_id = path.stem.removeprefix("agent-") if self.is_subagent else None
+        self.source = "subagent" if self.is_subagent else "claude-code"
+        self.parent = self.session_id if self.is_subagent else None
+        self.name = "Agent " + self.agent_id if self.is_subagent else "Claude session"
+        self.message_usage = {}
+
+    def consume(self, item):
+        # Subagent records share the parent's sessionId, but have their own agentId.
+        session = item.get("sessionId") or item.get("session_id")
+        if session != self.session_id:
+            return
+        if self.is_subagent:
+            if item.get("agentId") not in (None, self.agent_id):
+                return
+        elif item.get("isSidechain") or item.get("agentId"):
+            return
+        self.id = self.session_id + ":" + self.agent_id if self.is_subagent else self.session_id
+        kind = item.get("type")
+        at = timestamp(item.get("timestamp"))
+        if item.get("cwd"):
+            self.cwd = str(item["cwd"])
+        if at is not None:
+            self.created = min(self.created or at, at)
+        if kind in ("custom-title", "ai-title", "agent-name"):
+            self.name = str(item.get("customTitle") or item.get("aiTitle") or item.get("agentName") or self.name)[:180]
+            return
+        message = item.get("message")
+        if not isinstance(message, dict):
+            message = {}
+        content = message.get("content")
+        blocks = [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
+        if kind == "user":
+            if item.get("isMeta") or item.get("isCompactSummary"):
+                return
+            tool_result = any(b.get("type") == "tool_result" for b in blocks)
+            if not tool_result or self.turn_started is None:
+                self.turn_started = at
+            self.turn_ended = None
+            self.state, self.state_reason = "running", "A user message or tool result was recorded; process liveness is inferred"
+            self.note(at, "Tool result received" if tool_result else "Turn started", "tool" if tool_result else "lifecycle")
+        elif kind == "assistant":
+            if item.get("isApiErrorMessage"):
+                self.state, self.state_reason = "failed", "An API error was recorded"
+                self.turn_ended = at
+                self.note(at, "API error recorded", "lifecycle")
+                return
+            model = message.get("model")
+            if isinstance(model, str) and not model.startswith("<"):
+                self.model = model
+            recorded = message.get("usage")
+            ident = message.get("id") or item.get("requestId") or item.get("uuid")
+            seen_message = isinstance(ident, str) and ident in self.message_usage
+            if isinstance(recorded, dict) and isinstance(ident, str):
+                def count(key):
+                    value = recorded.get(key)
+                    return max(0, value) if type(value) is int else 0
+                current = usage({"input_tokens": count("input_tokens") + count("cache_creation_input_tokens") + count("cache_read_input_tokens"),
+                                 "cached_input_tokens": count("cache_read_input_tokens"),
+                                 "output_tokens": count("output_tokens")})
+                # Several content blocks can repeat/update one API message's usage.
+                previous = self.message_usage.get(ident, usage({}))
+                updated = {key: max(previous[key], current[key]) for key in TOKEN_KEYS}
+                self.message_usage[ident] = updated
+                if self.tokens is None:
+                    self.tokens = usage({})
+                for key in TOKEN_KEYS:
+                    self.tokens[key] += updated[key] - previous[key]
+                self.tokens["total_tokens"] = self.tokens["input_tokens"] + self.tokens["output_tokens"]
+                self.last_request = updated
+            if self.turn_started is None or (self.turn_ended is not None and not seen_message):
+                self.turn_started, self.turn_ended = at, None
+            tools = [b for b in blocks if b.get("type") == "tool_use"]
+            for block in tools:
+                self.note(at, "Tool · " + str(block.get("name") or "unnamed"), "tool")
+            if not tools:
+                self.note(at, "Assistant response", "message")
+            if message.get("stop_reason") in ("end_turn", "stop_sequence", "refusal") and not tools:
+                self.state, self.state_reason = "idle", "Last recorded assistant turn completed"
+                self.turn_ended = at
+            else:
+                self.state, self.state_reason = "running", "An assistant response or tool call was recorded; the turn remains open"
+        elif kind == "system" and item.get("subtype") == "turn_duration":
+            self.state, self.state_reason = "idle", "Last recorded turn completed"
+            self.turn_ended = at
+            self.note(at, "Turn completed", "lifecycle")
+        elif kind == "progress":
+            self.note(at, "Tool progress recorded", "tool")
+
+    def public(self, now, stale_after, metadata=None):
+        result = super().public(now, stale_after, metadata)
+        # Claude transcripts do not consistently separate reasoning token usage.
+        for key in ("tokens", "last_request"):
+            if result[key] is not None:
+                result[key] = {**result[key], "reasoning_output_tokens": None}
+        return result
+
+
 def read_metadata(home):
     """Optional labels only. Immutable mode cannot create DB/WAL/SHM files.
 
@@ -243,7 +348,7 @@ def read_metadata(home):
         return {}, "Optional thread labels unavailable; using rollout metadata"
 
 
-def demo_agents(now):
+def demo_agents(now, provider="codex"):
     specs = [
         ("demo-root", None, "Machinery · implementation", "running", "gpt-6.1-sol", 184200, 132000, 18200, 540),
         ("demo-data", "demo-root", "Base · validate revision history", "running", "gpt-6.1-sol", 62500, 41000, 8200, 220),
@@ -254,7 +359,7 @@ def demo_agents(now):
     result = []
     for ident, parent, name, status, model, incoming, cached, outgoing, elapsed in specs:
         result.append({"id": ident, "parent_id": parent, "name": name, "cwd": "/example/potosi/intake",
-                       "model": model, "provider": "openai", "source": "subagent" if parent else "demo",
+                       "model": "claude-demo" if provider == "claude" else model, "provider": "anthropic" if provider == "claude" else "openai", "source": "subagent" if parent else "demo",
                        "status": status, "status_reason": "Sample data — no real agent is connected", "status_source": "demo",
                        "created_at": now - elapsed, "last_seen": now - (2 if status == "running" else 80),
                        "turn_started_at": now - elapsed, "turn_ended_at": None if status in ("running", "waiting") else now - 80,
@@ -266,8 +371,12 @@ def demo_agents(now):
 
 
 class Observer:
-    def __init__(self, home, limit=120, stale_after=120, demo=False, interval=2):
+    def __init__(self, home, limit=120, stale_after=120, demo=False, interval=2, provider="codex"):
         self.home, self.limit, self.stale_after, self.demo = home, limit, stale_after, demo
+        if provider not in ("codex", "claude"):
+            raise ValueError("Unknown session provider")
+        self.provider = provider
+        self.directory = home / ("projects" if provider == "claude" else "sessions")
         self.interval = interval
         self.rollouts = {}
         self.lock = threading.Lock()
@@ -276,26 +385,29 @@ class Observer:
     def refresh(self):
         now, warnings = time.time(), []
         if self.demo:
-            agents = demo_agents(now)
+            agents = demo_agents(now, self.provider)
             discovered = len(agents)
         else:
             files = []
-            directory = self.home / "sessions"
+            directory = self.directory
             try:
                 files = sorted(directory.rglob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
                 if not directory.is_dir():
-                    warnings.append("No sessions directory found. Set --codex-home or use --demo.")
+                    warnings.append(f"No {self.provider} session directory found. Set --{self.provider}-home or use --demo.")
             except OSError:
                 warnings.append("Some session files could not be discovered")
             discovered = len(files)
             chosen = set(files[:self.limit])
             self.rollouts = {p: r for p, r in self.rollouts.items() if p in chosen}
-            metadata, warning = read_metadata(self.home)
+            metadata, warning = read_metadata(self.home) if self.provider == "codex" else ({}, None)
             if warning:
                 warnings.append(warning)
             agents = []
+            record_type = ClaudeRollout if self.provider == "claude" else Rollout
             for path in files[:self.limit]:
-                record = self.rollouts.setdefault(path, Rollout(path))
+                record = self.rollouts.get(path)
+                if record is None:
+                    record = self.rollouts[path] = record_type(path)
                 try:
                     record.update()
                     if record.id:
@@ -312,7 +424,7 @@ class Observer:
                 unique[agent["id"]] = agent
         payload = {"agents": sorted(unique.values(), key=lambda a: a["last_seen"] or 0, reverse=True),
                    "generated_at": now, "loading": False, "mode": "demo" if self.demo else "logs",
-                   "source": "Sample data" if self.demo else str(self.home / "sessions"),
+                   "source": "Sample data" if self.demo else str(self.directory), "provider": self.provider,
                    "discovered": discovered, "limit": self.limit, "stale_after": self.stale_after,
                    "refresh_interval": self.interval,
                    "warnings": list(dict.fromkeys(warnings)),
@@ -327,6 +439,7 @@ class Observer:
 
 
 def make_handler(observer):
+    observers = observer if isinstance(observer, dict) else {"codex": observer}
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.respond(False)
@@ -341,16 +454,23 @@ def make_handler(observer):
             if host not in allowed or (origin and origin != "http://" + host):
                 self.send_error(403, "Local same-origin access only")
                 return
-            path = urlsplit(self.path).path
+            request = urlsplit(self.path)
+            path = request.path
             assets = {"/": ("index.html", "text/html; charset=utf-8"),
                       "/index.html": ("index.html", "text/html; charset=utf-8"),
                       "/style.css": ("style.css", "text/css; charset=utf-8"),
                       "/app.js": ("app.js", "text/javascript; charset=utf-8"),
                       "/theme.js": ("theme.js", "text/javascript; charset=utf-8"),
                       "/theme.css": ("theme.css", "text/css; charset=utf-8"),
-                      "/assets/inter-tight-800.ttf": ("assets/inter-tight-800.ttf", "font/ttf")}
+                      "/assets/inter-tight-800.ttf": ("assets/inter-tight-800.ttf", "font/ttf"),
+                      "/assets/openai.svg": ("assets/openai.svg", "image/svg+xml"),
+                      "/assets/claude.svg": ("assets/claude.svg", "image/svg+xml")}
             if path == "/api/snapshot":
-                data, content_type = observer.snapshot(), "application/json; charset=utf-8"
+                providers = parse_qs(request.query, keep_blank_values=True).get("provider", ["codex"])
+                if len(providers) != 1 or providers[0] not in observers:
+                    self.send_error(400, "Unknown session provider")
+                    return
+                data, content_type = observers[providers[0]].snapshot(), "application/json; charset=utf-8"
             elif path in assets:
                 filename, content_type = assets[path]
                 data = (ASSETS / filename).read_bytes()
@@ -377,30 +497,34 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", "~/.codex")).expanduser())
+    parser.add_argument("--claude-home", type=Path, default=Path(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude")).expanduser())
     parser.add_argument("--limit", type=int, default=120, help="Most recently modified rollout files to observe")
     parser.add_argument("--stale-after", type=int, default=120, help="Open turns become unknown after this many seconds without activity")
     parser.add_argument("--interval", type=float, default=2, help="Log refresh interval in seconds")
-    parser.add_argument("--demo", action="store_true", help="Show clearly labelled sample data; do not read Codex state")
+    parser.add_argument("--demo", action="store_true", help="Show clearly labelled sample data; do not read session state")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535 or args.limit < 1 or args.stale_after < 1 or args.interval < 0.5:
         parser.error("Choose a valid port, positive limit/stale threshold and interval of at least 0.5 seconds")
-    observer = Observer(args.codex_home.expanduser().resolve(), args.limit, args.stale_after, args.demo, args.interval)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(observer))
+    observers = {provider: Observer(home.expanduser().resolve(), args.limit, args.stale_after, args.demo, args.interval, provider)
+                 for provider, home in (("codex", args.codex_home), ("claude", args.claude_home))}
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(observers))
     stop = threading.Event()
 
-    def collect():
+    def collect(observer):
         while not stop.is_set():
             try:
                 observer.refresh()
             except Exception as exc:
                 # Retain the last good view without exposing raw exceptions or prompts.
-                print(f"Observation failed ({type(exc).__name__}); retaining last snapshot", flush=True)
+                print(f"{observer.provider} observation failed ({type(exc).__name__}); retaining last snapshot", flush=True)
             stop.wait(args.interval)
 
-    worker = threading.Thread(target=collect, daemon=True)
-    worker.start()
+    workers = [threading.Thread(target=collect, args=(observer,), daemon=True) for observer in observers.values()]
+    for worker in workers:
+        worker.start()
     print(f"Poto.si | Overwatch: http://127.0.0.1:{args.port}", flush=True)
-    print("Sample data" if args.demo else f"Read-only logs: {observer.home / 'sessions'}", flush=True)
+    for provider, observer in observers.items():
+        print(f"{provider}: sample data" if args.demo else f"{provider} read-only logs: {observer.directory}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -408,7 +532,8 @@ def main():
     finally:
         stop.set()
         server.server_close()
-        worker.join(timeout=2)
+        for worker in workers:
+            worker.join(timeout=2)
 
 
 if __name__ == "__main__":

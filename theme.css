@@ -236,3 +236,20 @@
   --ui-muted-strong:#928a8c;
   --ui-hover-outline:#e6dcdf;
 }
+
+/* Agent platform uses the same dropdown surface and controls as Appearance. */
+.provider-menu>summary{min-width:108px}
+.provider-menu .appearance-chevron{margin-left:auto}
+.provider-logo{display:inline-block;flex-shrink:0;width:17px;height:17px;background:var(--text);mask:url("/assets/openai.svg") center/contain no-repeat}
+.provider-logo[data-provider=claude]{background:#d97757;mask-image:url("/assets/claude.svg")}
+.provider-panel{width:200px;padding:9px}
+.provider-options{display:grid;gap:4px}
+.provider-options legend{margin:5px 7px 9px}
+.provider-option{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid transparent;border-radius:6px;color:var(--text)}
+.provider-options label:hover .provider-option{background:var(--raised);border-color:var(--line)}
+.provider-options input:checked+.provider-option{background:var(--accent-surface);border-color:var(--accent-border)}
+.provider-copy{display:grid;gap:3px;flex:1}
+.provider-copy strong{font:500 11px var(--mono)}
+.provider-copy small{font:9px var(--mono);color:var(--muted)}
+.provider-check{font:12px var(--mono);color:var(--accent);visibility:hidden}
+.provider-options input:checked+.provider-option .provider-check{visibility:visible}
