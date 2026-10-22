@@ -55,9 +55,8 @@ main{padding:42px 42px 24px}.page-heading{display:flex;justify-content:space-bet
 @media(max-width:520px){.activity-controls{width:100%;justify-content:space-between;gap:10px}.square-legend{padding:13px 15px;gap:9px 12px}.square-board{padding:16px 15px 20px;min-height:230px}.square-board-heading{font-size:8px;letter-spacing:.6px;padding-bottom:18px}.square-group-heading{font-size:9px}.square-group-count{font-size:8px}.square-grid{grid-template-columns:repeat(auto-fill,minmax(55px,1fr));gap:6px}.agent-square{padding:6px 7px}.square-number{font-size:17px}.square-tokens{font-size:8px}.square-caption{padding:13px 15px;font-size:9px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 @font-face{font-family:"Inter Tight";font-style:normal;font-weight:800;font-display:swap;src:url("/assets/inter-tight-800.ttf") format("truetype")}
-.brand.wordmark{font-family:"Inter Tight",sans-serif;font-size:32px;font-weight:800;letter-spacing:-.07em;line-height:1;gap:12px;color:var(--text);text-decoration:none;white-space:nowrap}
+.brand.wordmark{align-items:flex-end;font-family:"Inter Tight",sans-serif;font-size:32px;font-weight:800;letter-spacing:-.07em;line-height:1;gap:12px;color:var(--text);text-decoration:none;white-space:nowrap}
 .wordmark .brand-dot{color:var(--accent)}
-.wordmark .brand-separator{color:var(--muted);font-size:25px;letter-spacing:0;opacity:.65}
 .page-heading .overwatch-title{font-family:"Inter Tight",sans-serif;font-weight:800;letter-spacing:-.07em}
-@media(max-width:1100px){.brand.wordmark{font-size:29px;gap:10px}.wordmark .brand-separator{font-size:23px}}
-@media(max-width:520px){.brand.wordmark{font-size:26px;gap:8px}.wordmark .brand-separator{font-size:21px}}
+@media(max-width:1100px){.brand.wordmark{font-size:29px;gap:10px}}
+@media(max-width:520px){.brand.wordmark{font-size:26px;gap:8px}}
