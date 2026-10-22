@@ -294,10 +294,10 @@ class HttpTests(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join(timeout=2)
 
-    def request(self, path, method="GET", headers=None):
+    def request(self, path, method="GET", headers=None, body=None):
         connection = HTTPConnection("127.0.0.1", self.server.server_port)
         try:
-            connection.request(method, path, headers=headers or {})
+            connection.request(method, path, body=body, headers=headers or {})
             response = connection.getresponse()
             return response.status, dict(response.getheaders()), response.read()
         finally:
@@ -326,7 +326,23 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(self.request(path)[0], 404, path)
         self.assertEqual(self.request("/api/snapshot", headers={"Host": "attacker.example"})[0], 403)
         self.assertEqual(self.request("/api/snapshot", headers={"Origin": "https://attacker.example"})[0], 403)
-        self.assertEqual(self.request("/api/snapshot", method="POST")[0], 501)
+        self.assertEqual(self.request("/api/snapshot", method="POST")[0], 403)
+
+    def test_session_action_failures_are_json_and_demo_logs_cannot_be_changed(self):
+        for path in ("/api/session?provider=codex&id=codex-demo-1",
+                     "/api/session/delete-preview?provider=codex&id=codex-demo-1"):
+            status, headers, body = self.request(path)
+            self.assertEqual(status, 409)
+            self.assertIn("application/json", headers["Content-Type"])
+            self.assertIn("error", json.loads(body))
+        body = json.dumps({"provider": "codex", "id": "codex-demo-1", "revision": "x"})
+        headers = {"Host": "127.0.0.1:" + str(self.server.server_port),
+                   "Origin": "http://127.0.0.1:" + str(self.server.server_port),
+                   "X-Overwatch-Action": "1", "Content-Type": "application/json"}
+        status, _, response = self.request("/api/session/delete", method="POST", headers=headers, body=body)
+        self.assertEqual(status, 409)
+        self.assertIn("error", json.loads(response))
+        self.assertEqual(self.request("/api/session/delete", method="POST", headers={**headers, "Origin": "https://evil.example"})[0], 403)
 
 
 if __name__ == "__main__":

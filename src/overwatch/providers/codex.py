@@ -2,6 +2,7 @@
 
 from collections import deque
 import json
+import os
 
 from ..usage import TOKEN_KEYS, timestamp, usage
 
@@ -137,7 +138,8 @@ class Rollout:
         self.identity = identity
         if stat.st_size == self.offset:
             return
-        with self.path.open("rb") as stream:
+        descriptor = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(descriptor, "rb") as stream:
             stream.seek(self.offset)
             while True:
                 start = stream.tell()

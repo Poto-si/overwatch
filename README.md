@@ -1,6 +1,6 @@
 # Overwatch
 
-A local, read-only dashboard for Codex and Claude Code sessions and their recorded subagents.
+A local dashboard for Codex and Claude Code sessions and their recorded subagents.
 See agent activity, parent/child relationships, models, and token usage in one
 place. Built with Python's standard library and vanilla HTML, CSS, and JavaScript.
 
@@ -35,6 +35,9 @@ python3 server.py --demo
 - **Search and filters:** find agents by name, model, project, status, or open turn.
 - **Agent details:** see recorded lifecycle events, recent activity, model,
   provider, and parent session.
+- **Open and Delete:** open a chat in its original app or copy its resume command.
+  Delete a chat and its recorded subagents after confirmation; local recovery
+  copies are kept. See [session actions](docs/session-actions.md) for details.
 - **Token accounting:** inspect input, cached input, output, reasoning output,
   and last-request size relative to the recorded context window.
 - **Automatic refresh:** observations update every two seconds by default.
@@ -126,7 +129,7 @@ overwatch --demo
 Tests use disposable logs and databases plus a temporary loopback server. They
 cover usage attribution, partial writes, stale status, data minimization,
 immutable database access, provider isolation, Claude streaming usage and
-subagent attribution, static asset serving, and read-only HTTP boundaries.
+subagent attribution, static asset serving, and local HTTP action boundaries.
 They never read real sessions or contact model providers.
 
 ## System service

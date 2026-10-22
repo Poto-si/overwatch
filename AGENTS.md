@@ -50,7 +50,8 @@ screenshots for visible interface changes.
 
 ## Privacy & Security Boundaries
 
-Preserve read-only observation, loopback defaults, same-origin checks, and the
-static-file allowlist. Never expose prompts, reasoning, tool payloads, or
-credentials. Keep frontend resources local. Consult `docs/privacy.md` and
-`docs/status-and-usage.md` before changing collected or displayed data.
+Keep observation read-only. Explicit, confirmed Delete actions may move known
+transcripts to local recovery storage. Preserve loopback defaults, same-origin
+checks, and the static-file allowlist. Never expose prompts, reasoning, tool
+payloads, or credentials. Keep frontend resources local. Consult
+`docs/privacy.md` and `docs/session-actions.md` before changing session actions.

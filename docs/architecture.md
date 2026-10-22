@@ -9,6 +9,8 @@ The Python modules separate usage accounting (`usage.py`), Codex and Claude
 transcript readers (`providers/codex.py`, `providers/claude.py`), metadata
 (`metadata.py`), sample observations (`demo.py`), refresh coordination
 (`observer.py`), HTTP serving (`http.py`), and command-line startup (`cli.py`).
+Explicit session actions live in `actions.py`; see
+[session actions](session-actions.md) for opening, deletion, and recovery.
 
 The HTTP server incrementally reads session transcripts, extracts lifecycle and usage
 events, and serves `/api/snapshot?provider=codex` and

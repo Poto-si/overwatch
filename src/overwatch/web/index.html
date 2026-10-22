@@ -23,6 +23,26 @@
     </div>
     <p class="welcome-hint">You can switch anytime using the platform menu beside Appearance.</p>
   </dialog>
+  <dialog id="open-session" class="action-dialog" aria-labelledby="open-session-title" aria-describedby="open-session-description">
+    <div class="eyebrow">OPEN ORIGINAL SESSION</div>
+    <h2 id="open-session-title">Open agent session</h2>
+    <p id="open-session-description">Open the original conversation in its agent app. You can also run this command from a terminal.</p>
+    <p id="open-session-error" class="action-error" role="status" hidden></p>
+    <div id="open-session-link-wrap" class="action-link-wrap" hidden><a id="open-session-link" class="button action-primary" href="#">Open in agent app <span aria-hidden="true">↗</span></a></div>
+    <p id="open-session-note" class="action-note small muted" hidden></p>
+    <label class="command-label" for="open-session-command">Terminal command</label>
+    <pre id="open-session-command" class="action-command" tabindex="0"></pre>
+    <div class="action-footer"><span id="open-session-status" class="small muted" role="status" aria-live="polite"></span><div class="action-buttons"><button id="copy-session-command" class="button" type="button">Copy command</button><button class="button" type="button" data-close-dialog="open-session">Close</button></div></div>
+  </dialog>
+  <dialog id="delete-session" class="action-dialog" aria-labelledby="delete-session-title" aria-describedby="delete-session-description">
+    <div class="eyebrow">REMOVE LOCAL SESSION LOGS</div>
+    <h2 id="delete-session-title">Delete session</h2>
+    <p id="delete-session-description">This removes the selected session and its recorded subagent transcripts from local observed logs. It does not affect account or cloud data. A recovery copy will be kept under the provider’s local <code>.overwatch-trash</code> folder.</p>
+    <dl class="delete-summary"><div><dt>Selected agent</dt><dd id="delete-session-name"></dd></div><div><dt>Session</dt><dd id="delete-session-id" class="mono"></dd></div><div><dt>Transcript files</dt><dd id="delete-session-files">Loading…</dd></div><div><dt>Sessions</dt><dd id="delete-session-count">Loading…</dd></div></dl>
+    <p id="delete-session-error" class="action-error" role="status" hidden></p>
+    <p id="delete-session-status" class="small muted" role="status" aria-live="polite">Checking local files…</p>
+    <div class="action-buttons action-confirm-buttons"><button id="cancel-delete-session" class="button" type="button" data-close-dialog="delete-session" autofocus>Cancel</button><button id="confirm-delete-session" class="button danger-button" type="button" disabled>Delete local logs</button></div>
+  </dialog>
   <div class="shell">
     <header class="topbar">
       <a class="brand wordmark" href="/" aria-label="poto.si overwatch home"><span>poto<span class="brand-dot">.</span>si</span><span class="eyebrow">overwatch</span></a>
@@ -84,7 +104,7 @@
         <aside class="detail-panel panel" aria-label="Selected agent details">
           <div id="detail-empty" class="detail-empty"><span class="detail-symbol" aria-hidden="true">◎</span><h2>A closer look</h2><p>Select an agent to inspect its model, token breakdown, and recent activity.</p></div>
           <div id="detail" hidden>
-            <div class="detail-heading"><span class="eyebrow">AGENT DETAILS</span><span id="detail-status" class="status"></span></div>
+            <div class="detail-heading"><div class="detail-heading-left"><span class="eyebrow">AGENT DETAILS</span><div class="detail-actions"><button id="open-session-button" class="detail-icon-button" type="button" aria-label="Open chat" title="Open chat"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M11 3h6v6M17 3 9 11M15 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></button><button id="delete-session-button" class="detail-icon-button delete-icon-button" type="button" aria-label="Delete chat" title="Delete chat"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3.5 5h13M8 5V3h4v2m3.5 0-.8 11H5.3l-.8-11M8 8v5m4-5v5"/></svg></button></div></div><span id="detail-status" class="status"></span></div>
             <h2 id="detail-name"></h2><p id="detail-reason" class="detail-reason"></p>
             <dl class="metadata"><div><dt>Model</dt><dd id="detail-model"></dd></div><div><dt>Provider</dt><dd id="detail-provider"></dd></div><div><dt>Project</dt><dd id="detail-project"></dd></div><div><dt>Source</dt><dd id="detail-source"></dd></div><div><dt>Session ID</dt><dd id="detail-id" class="mono"></dd></div><div><dt>Parent</dt><dd id="detail-parent" class="mono"></dd></div><div><dt>Last turn</dt><dd id="detail-duration"></dd></div></dl>
             <div class="section-heading"><h3>Token accounting</h3><span id="detail-total" class="mono"></span></div>

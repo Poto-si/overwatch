@@ -1,6 +1,9 @@
 """Discover and refresh session observations for each configured provider."""
 
 import json
+import os
+from pathlib import Path
+import stat
 import threading
 import time
 
@@ -20,9 +23,14 @@ class Observer:
         self.interval = interval
         self.rollouts = {}
         self.lock = threading.Lock()
+        self.operation_lock = threading.RLock()
         self.encoded = b'{"agents":[],"loading":true,"warnings":[]}'
 
     def refresh(self):
+        with self.operation_lock:
+            self._refresh()
+
+    def _refresh(self):
         now, warnings = time.time(), []
         if self.demo:
             agents = demo_agents(now, self.provider)
@@ -31,7 +39,23 @@ class Observer:
             files = []
             directory = self.directory
             try:
-                files = sorted(directory.rglob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+                try:
+                    directory_info = directory.lstat()
+                except FileNotFoundError:
+                    directory_info = None
+                if directory_info is not None and stat.S_ISDIR(directory_info.st_mode):
+                    for current, dirs, names in os.walk(directory, topdown=True, followlinks=False):
+                        dirs[:] = [name for name in dirs
+                                   if _is_real_directory(Path(current) / name)]
+                        for name in names:
+                            if name.endswith(".jsonl"):
+                                path = Path(current) / name
+                                try:
+                                    if stat.S_ISREG(path.lstat().st_mode):
+                                        files.append(path)
+                                except OSError:
+                                    pass
+                files.sort(key=lambda p: p.lstat().st_mtime, reverse=True)
                 if not directory.is_dir():
                     warnings.append(f"No {self.provider} session directory found. Set --{self.provider}-home or use --demo.")
             except OSError:
@@ -76,3 +100,10 @@ class Observer:
     def snapshot(self):
         with self.lock:
             return self.encoded
+
+
+def _is_real_directory(path):
+    try:
+        return stat.S_ISDIR(path.lstat().st_mode)
+    except OSError:
+        return False

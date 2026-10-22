@@ -2,7 +2,7 @@
 
 const $ = id => document.getElementById(id);
 const labels = {running: "Working", waiting: "Waiting", idle: "Idle", interrupted: "Interrupted", failed: "Failed", unknown: "Unknown"};
-const state = {agents: [], snapshot: null, selected: null, collapsed: new Set(), paused: false, fetching: false, offline: false, view: "squares", provider: "codex"};
+const state = {agents: [], snapshot: null, selected: null, collapsed: new Set(), paused: false, fetching: false, offline: false, view: "squares", provider: "codex", actionTarget: null, deletePreview: null, deleteBusy: false, refreshAfterDelete: false};
 const providerKey = "potosi.overwatch.provider";
 const welcomeKey = "potosi.overwatch.welcome";
 let welcomeComplete = false;
@@ -233,10 +233,19 @@ function setView(view) {
   state.view = view;
   render();
 }
+function updateSessionActions(agent) {
+  const disabled = !agent || !state.snapshot || state.snapshot.mode === "demo" || state.deleteBusy;
+  $("open-session-button").disabled = disabled;
+  $("delete-session-button").disabled = disabled;
+  const demo = state.snapshot?.mode === "demo";
+  $("open-session-button").title = demo ? "Session actions are unavailable in demo mode" : "Open this session in its original agent app";
+  $("delete-session-button").title = demo ? "Session actions are unavailable in demo mode" : "Delete this session's local transcript files";
+}
 function renderDetail() {
   const agent = state.agents.find(a => a.id === state.selected);
   $("detail").hidden = !agent;
   $("detail-empty").hidden = !!agent;
+  updateSessionActions(agent);
   if (!agent) return;
   statusBadge($("detail-status"), agent);
   $("detail-name").textContent = agent.name;
@@ -268,6 +277,175 @@ function renderDetail() {
   });
   $("activity").replaceChildren(...(events.length ? events : [node("li", "muted small", "No lifecycle/tool metadata recorded")]));
 }
+function showDialog(dialog) {
+  if (!dialog.open) dialog.showModal();
+}
+function closeActionDialogs() {
+  for (const id of ["open-session", "delete-session"]) if ($(id).open) $(id).close();
+  state.actionTarget = null;
+  state.deletePreview = null;
+  state.deleteBusy = false;
+}
+function actionQuery(target) {
+  return "provider=" + encodeURIComponent(target.provider) + "&id=" + encodeURIComponent(target.id);
+}
+async function responseError(response, fallback) {
+  let payload = {};
+  try { payload = await response.json(); } catch (_) { /* The status remains useful without JSON. */ }
+  if (!response.ok) {
+    const error = new Error(payload.error || payload.message || fallback);
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
+function captureSelectedSession() {
+  const agent = state.agents.find(item => item.id === state.selected);
+  if (!agent || !state.snapshot || state.snapshot.mode === "demo") return null;
+  return {provider: state.provider, id: agent.id, name: agent.name, providerLabel: providerLabel()};
+}
+async function openSelectedSession() {
+  const target = captureSelectedSession();
+  if (!target) return;
+  state.actionTarget = target;
+  $("open-session-title").textContent = "Open " + target.name;
+  $("open-session-command").textContent = "Loading session details…";
+  $("open-session-link-wrap").hidden = true;
+  $("open-session-note").textContent = "";
+  $("open-session-note").hidden = true;
+  $("open-session-error").hidden = true;
+  $("open-session-status").textContent = "";
+  $("copy-session-command").disabled = true;
+  showDialog($("open-session"));
+  try {
+    const response = await fetch("/api/session?" + actionQuery(target), {cache: "no-store", signal: AbortSignal.timeout(10000)});
+    const info = await responseError(response, "Could not load session details");
+    if (!$("open-session").open || state.actionTarget !== target) return;
+    const command = typeof info.command === "string" ? info.command : "";
+    $("open-session-command").textContent = command || "No terminal command is available for this session.";
+    $("copy-session-command").disabled = !command;
+    const uri = typeof info.url === "string" ? info.url : "";
+    let safeUri = "";
+    try {
+      const parsed = new URL(uri);
+      if (["codex:", "claude:"].includes(parsed.protocol)) safeUri = parsed.href;
+    } catch (_) { /* Unsupported or malformed handler URLs stay hidden. */ }
+    if (safeUri) {
+      $("open-session-link").href = safeUri;
+      $("open-session-link").textContent = "Open in " + (target.provider === "claude" ? "Claude" : "Codex") + " app ↗";
+      $("open-session-link-wrap").hidden = false;
+    }
+    const note = info.note || (safeUri ? "The terminal command remains available if the app link does not open." : "No app link is configured for this session. Run the command below to resume it.");
+    $("open-session-note").textContent = note;
+    $("open-session-note").hidden = false;
+  } catch (error) {
+    if (!$("open-session").open || state.actionTarget !== target) return;
+    $("open-session-command").textContent = "";
+    $("copy-session-command").disabled = true;
+    $("open-session-error").textContent = error.message || "Could not load session details";
+    $("open-session-error").hidden = false;
+  }
+}
+async function copySessionCommand() {
+  const command = $("open-session-command").textContent;
+  if (!command || command === "No terminal command is available for this session." || command === "Loading session details…") return;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText(command);
+    $("open-session-status").textContent = "Command copied.";
+  } catch (_) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents($("open-session-command"));
+    selection.removeAllRanges();
+    selection.addRange(range);
+    $("open-session-command").focus();
+    $("open-session-status").textContent = "Command selected. Copy it with your keyboard shortcut.";
+  }
+}
+async function beginDeleteSelectedSession() {
+  const target = captureSelectedSession();
+  if (!target) return;
+  state.actionTarget = target;
+  state.deletePreview = null;
+  $("delete-session-title").textContent = "Delete " + target.name + "?";
+  $("delete-session-name").textContent = target.name;
+  $("delete-session-id").textContent = target.id;
+  $("delete-session-files").textContent = "Loading…";
+  $("delete-session-count").textContent = "Loading…";
+  $("delete-session-status").textContent = "Checking local files…";
+  $("delete-session-error").hidden = true;
+  $("confirm-delete-session").disabled = true;
+  showDialog($("delete-session"));
+  $("cancel-delete-session").focus();
+  try {
+    const response = await fetch("/api/session/delete-preview?" + actionQuery(target), {cache: "no-store", signal: AbortSignal.timeout(10000)});
+    const preview = await responseError(response, "Could not inspect local session files");
+    if (!$("delete-session").open || state.actionTarget !== target) return;
+    state.deletePreview = {target, revision: preview.revision};
+    $("delete-session-files").textContent = exact.format(preview.files ?? 0);
+    $("delete-session-count").textContent = exact.format(preview.sessions ?? 0);
+    $("delete-session-status").textContent = "Confirm to move these transcript files into the local recovery folder.";
+    $("confirm-delete-session").disabled = false;
+  } catch (error) {
+    if (!$("delete-session").open || state.actionTarget !== target) return;
+    $("delete-session-files").textContent = "Unavailable";
+    $("delete-session-count").textContent = "Unavailable";
+    $("delete-session-status").textContent = "Deletion is unavailable until the file check succeeds.";
+    $("delete-session-error").textContent = error.message || "Could not inspect local session files";
+    $("delete-session-error").hidden = false;
+  }
+}
+async function confirmDeleteSession() {
+  const preview = state.deletePreview;
+  if (!preview || preview.target !== state.actionTarget || state.deleteBusy) return;
+  const {target} = preview;
+  state.deleteBusy = true;
+  $("confirm-delete-session").disabled = true;
+  $("cancel-delete-session").disabled = true;
+  $("delete-session-status").textContent = "Removing local transcript files…";
+  $("delete-session-error").hidden = true;
+  updateSessionActions(state.agents.find(agent => agent.id === state.selected));
+  try {
+    const response = await fetch("/api/session/delete", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-Overwatch-Action": "1"},
+      body: JSON.stringify({provider: target.provider, id: target.id, revision: preview.revision}),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30000)
+    });
+    const result = await responseError(response, "Could not delete local session files");
+    if (state.actionTarget !== target) return;
+    $("delete-session").close();
+    state.actionTarget = null;
+    state.deletePreview = null;
+    state.deleteBusy = false;
+    state.snapshot = null;
+    state.agents = [];
+    state.selected = null;
+    state.paused = false;
+    $("pause").textContent = "Pause view";
+    $("pause").setAttribute("aria-pressed", "false");
+    $("notice").className = "notice";
+    $("notice").textContent = result.message || "Local session logs removed. Refreshing observations…";
+    updateProjects();
+    render();
+    if (state.fetching) state.refreshAfterDelete = true;
+    else refresh();
+  } catch (error) {
+    if (state.actionTarget !== target) return;
+    state.deleteBusy = false;
+    $("cancel-delete-session").disabled = false;
+    $("delete-session-status").textContent = "Deletion could not be confirmed. Refresh observations before trying again.";
+    $("delete-session-error").textContent = error.message || "Could not delete local session files";
+    $("delete-session-error").hidden = false;
+    state.deletePreview = null;
+    $("confirm-delete-session").disabled = true;
+    updateSessionActions(state.agents.find(agent => agent.id === state.selected));
+    if (state.fetching) state.refreshAfterDelete = true;
+    else refresh(true);
+  }
+}
 function render() {
   const agents = filtered();
   if (!agents.some(a => a.id === state.selected)) state.selected = agents[0]?.id || null;
@@ -298,8 +476,8 @@ function render() {
   $("connection").classList.toggle("offline", !!(state.offline || stale || state.paused));
   $("connection-label").textContent = state.offline ? "Disconnected" : state.paused ? "View paused" : stale ? "Snapshot stale" : "Observing";
 }
-async function refresh() {
-  if (!welcomeComplete || state.paused || state.fetching) return;
+async function refresh(force = false) {
+  if (!welcomeComplete || (state.paused && !force) || state.fetching) return;
   state.fetching = true;
   const provider = state.provider;
   try {
@@ -321,13 +499,17 @@ async function refresh() {
     render();
   } finally {
     state.fetching = false;
-    if (state.provider !== provider) refresh();
+    if (state.provider !== provider || state.refreshAfterDelete) {
+      state.refreshAfterDelete = false;
+      refresh(true);
+    }
   }
 }
 function selectProvider(value) {
   const provider = validProvider(value);
   try { localStorage.setItem(providerKey, provider); } catch (_) { /* Storage is optional. */ }
   if (provider === state.provider) return;
+  closeActionDialogs();
   state.provider = provider;
   syncProviderControl();
   state.agents = [];
@@ -386,6 +568,22 @@ $("pause").addEventListener("click", () => {
   render();
   if (!state.paused) refresh();
 });
+$("open-session-button").addEventListener("click", openSelectedSession);
+$("copy-session-command").addEventListener("click", copySessionCommand);
+$("delete-session-button").addEventListener("click", beginDeleteSelectedSession);
+$("confirm-delete-session").addEventListener("click", confirmDeleteSession);
+document.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => $(button.dataset.closeDialog).close()));
+$("open-session").addEventListener("close", () => {
+  if ($("open-session").open || $("delete-session").open) return;
+  state.actionTarget = null;
+});
+$("delete-session").addEventListener("close", () => {
+  if ($("delete-session").open || $("open-session").open) return;
+  state.actionTarget = null;
+  state.deletePreview = null;
+  if (!state.deleteBusy) $("cancel-delete-session").disabled = false;
+});
+$("delete-session").addEventListener("cancel", event => { if (state.deleteBusy) event.preventDefault(); });
 if (!welcomeComplete) $("welcome").showModal();
 refresh();
 setInterval(() => { if (!state.paused) refresh(); }, 2000);

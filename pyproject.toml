@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "potosi-overwatch"
 version = "0.1.0"
-description = "A local, read-only dashboard for Codex and Claude Code sessions"
+description = "A local dashboard for Codex and Claude Code sessions"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
