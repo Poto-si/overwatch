@@ -309,7 +309,5 @@ $("pause").addEventListener("click", () => {
   render();
   if (!state.paused) refresh();
 });
-function tick() { $("clock").textContent = new Date().toLocaleTimeString([], {hour12: false}); }
-tick();
 refresh();
-setInterval(() => { tick(); if (!state.paused) refresh(); }, 2000);
+setInterval(() => { if (!state.paused) refresh(); }, 2000);
