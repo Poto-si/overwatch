@@ -4,8 +4,13 @@ const $ = id => document.getElementById(id);
 const labels = {running: "Working", waiting: "Waiting", idle: "Idle", interrupted: "Interrupted", failed: "Failed", unknown: "Unknown"};
 const state = {agents: [], snapshot: null, selected: null, collapsed: new Set(), paused: false, fetching: false, offline: false, view: "squares", provider: "codex"};
 const providerKey = "potosi.overwatch.provider";
+const welcomeKey = "potosi.overwatch.welcome";
+let welcomeComplete = false;
 const validProvider = value => value === "claude" ? "claude" : "codex";
-try { state.provider = validProvider(localStorage.getItem(providerKey)); } catch (_) { /* Storage is optional. */ }
+try {
+  state.provider = validProvider(localStorage.getItem(providerKey));
+  welcomeComplete = localStorage.getItem(welcomeKey) === "1";
+} catch (_) { /* Storage is optional. */ }
 function syncProviderControl() {
   const label = state.provider === "claude" ? "Claude" : "Codex";
   $("provider-label").textContent = label;
@@ -294,7 +299,7 @@ function render() {
   $("connection-label").textContent = state.offline ? "Disconnected" : state.paused ? "View paused" : stale ? "Snapshot stale" : "Observing";
 }
 async function refresh() {
-  if (state.paused || state.fetching) return;
+  if (!welcomeComplete || state.paused || state.fetching) return;
   state.fetching = true;
   const provider = state.provider;
   try {
@@ -321,6 +326,7 @@ async function refresh() {
 }
 function selectProvider(value) {
   const provider = validProvider(value);
+  try { localStorage.setItem(providerKey, provider); } catch (_) { /* Storage is optional. */ }
   if (provider === state.provider) return;
   state.provider = provider;
   syncProviderControl();
@@ -341,9 +347,25 @@ function selectProvider(value) {
   $("notice").textContent = "Connecting to " + providerLabel() + " observations…";
   $("connection-label").textContent = "Connecting";
   $("updated").textContent = "Awaiting first snapshot";
-  try { localStorage.setItem(providerKey, provider); } catch (_) { /* Storage is optional. */ }
   refresh();
 }
+function finishWelcome() {
+  welcomeComplete = true;
+  if ($("welcome").open) {
+    $("welcome").close();
+    $("provider-menu").querySelector("summary").focus();
+  }
+  refresh();
+}
+$("welcome").addEventListener("cancel", event => event.preventDefault());
+$("welcome").addEventListener("keydown", event => {
+  if (event.key === "Escape") event.preventDefault();
+});
+document.querySelectorAll(".welcome-option").forEach(button => button.addEventListener("click", () => {
+  selectProvider(button.dataset.provider);
+  try { localStorage.setItem(welcomeKey, "1"); } catch (_) { /* Storage is optional. */ }
+  finishWelcome();
+}));
 document.querySelectorAll('input[name="agent-provider"]').forEach(input => input.addEventListener("change", () => {
   if (!input.checked) return;
   selectProvider(input.value);
@@ -352,6 +374,7 @@ document.querySelectorAll('input[name="agent-provider"]').forEach(input => input
 }));
 window.addEventListener("storage", event => {
   if (event.key === providerKey || event.key === null) selectProvider(event.newValue);
+  if (event.key === welcomeKey && event.newValue === "1") finishWelcome();
 });
 for (const id of ["search", "project-filter", "status-filter", "active-only"]) $(id).addEventListener(id === "search" ? "input" : "change", render);
 $("view-squares").addEventListener("click", () => setView("squares"));
@@ -363,5 +386,6 @@ $("pause").addEventListener("click", () => {
   render();
   if (!state.paused) refresh();
 });
+if (!welcomeComplete) $("welcome").showModal();
 refresh();
 setInterval(() => { if (!state.paused) refresh(); }, 2000);

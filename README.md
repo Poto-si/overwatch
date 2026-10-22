@@ -24,6 +24,8 @@ python3 server.py --demo
 
 ## Features
 
+- **Welcome:** on your first visit, choose Codex or Claude in the welcome modal.
+  Your choice is remembered in this browser; use the platform menu to switch later.
 - **Codex and Claude:** switch platforms from the logo dropdown beside Appearance.
   Each platform has its own live observations; your choice persists across reloads
   and browser tabs. Switching platforms clears the current filters and resumes

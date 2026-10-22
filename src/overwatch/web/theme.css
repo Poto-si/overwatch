@@ -253,3 +253,19 @@
 .provider-copy small{font:9px var(--mono);color:var(--muted)}
 .provider-check{font:12px var(--mono);color:var(--accent);visibility:hidden}
 .provider-options input:checked+.provider-option .provider-check{visibility:visible}
+
+/* First-visit platform choice shares the dashboard's appearance palette. */
+.welcome{width:min(500px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:36px;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--text);box-shadow:0 24px 90px #00000055}
+.welcome::backdrop{background:#080c10b8;backdrop-filter:blur(6px)}
+.welcome h2{margin:16px 0 12px;font-size:30px;font-weight:500;line-height:1.15;letter-spacing:-1px}
+.welcome p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
+.welcome-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:28px 0 20px}
+.welcome-option{display:flex;align-items:center;gap:12px;min-height:96px;padding:18px;border:1px solid var(--line);border-radius:9px;background:var(--raised);color:var(--text);text-align:left;cursor:pointer}
+.welcome-option:hover{background:var(--accent-surface);border-color:var(--accent-border)}
+.welcome-option:focus-visible{outline:2px solid var(--focus);outline-offset:4px}
+.welcome-option .provider-logo{width:26px;height:26px}
+.welcome-option .provider-copy strong{font-size:13px}
+.welcome-option .provider-copy small{font-size:10px}
+.welcome-arrow{align-self:flex-start;font-size:14px;color:var(--accent)}
+.welcome .welcome-hint{font-size:11px}
+@media(max-width:520px){.welcome{padding:26px}.welcome h2{font-size:27px}.welcome-options{grid-template-columns:1fr}.welcome-option{min-height:76px}}
