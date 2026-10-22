@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "potosi-overwatch"
+version = "0.1.0"
+description = "A local, read-only dashboard for Codex and Claude Code sessions"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Poto-si/overwatch"
+Repository = "https://github.com/Poto-si/overwatch"
+Issues = "https://github.com/Poto-si/overwatch/issues"
+
+[project.scripts]
+overwatch = "overwatch.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["overwatch*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+overwatch = [
+    "web/*.html",
+    "web/*.js",
+    "web/*.css",
+    "web/assets/*",
+]

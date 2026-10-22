@@ -1,6 +1,8 @@
 """Behavioral checks using disposable logs/databases and a loopback HTTP server."""
 
+from contextlib import closing
 from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
 import sqlite3
@@ -8,7 +10,11 @@ import tempfile
 import threading
 import unittest
 
-from server import ClaudeRollout, Observer, Rollout, ThreadingHTTPServer, make_handler, read_metadata
+from overwatch.providers.claude import ClaudeRollout
+from overwatch.http import make_handler
+from overwatch.metadata import read_metadata
+from overwatch.observer import Observer
+from overwatch.providers.codex import Rollout
 
 
 def event(kind, payload, at=1000, ordinal=1):
@@ -110,7 +116,7 @@ class ObservationTests(unittest.TestCase):
 
     def test_optional_metadata_database_is_read_without_creating_sidecars(self):
         database = self.root / "state_5.sqlite"
-        with sqlite3.connect(database) as conn:
+        with closing(sqlite3.connect(database)) as conn, conn:
             conn.execute("create table threads (id text, title text, tokens_used integer)")
             conn.execute("insert into threads values ('child', 'Safe title', 999999)")
             conn.execute("create table thread_spawn_edges (parent_thread_id text, child_thread_id text, status text)")

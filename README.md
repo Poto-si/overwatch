@@ -59,6 +59,7 @@ python3 server.py --help
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `--port` | `8765` | Local HTTP port |
+| `--host` | `127.0.0.1` | Address to bind; Docker uses `0.0.0.0` inside the container |
 | `--codex-home` | `$CODEX_HOME` or `~/.codex` | Codex profile directory |
 | `--claude-home` | `$CLAUDE_CONFIG_DIR` or `~/.claude` | Claude Code profile directory |
 | `--limit` | `120` | Maximum recent transcript files per platform |
@@ -69,9 +70,39 @@ python3 server.py --help
 The browser requests a snapshot every two seconds. `--interval` controls how
 often the server reads the underlying logs.
 
+## Docker
+
+Build the image and open the sample dashboard:
+
+```sh
+make docker-build
+make docker-demo
+```
+
+Open **http://127.0.0.1:8765**. For real observations, `make docker-run` mounts
+any existing Codex and Claude directories read-only. Override their locations
+or the port as needed:
+
+```sh
+make docker-run CODEX_HOME=/path/to/.codex CLAUDE_HOME=/path/to/.claude PORT=8766
+```
+
+The container listens on `0.0.0.0` internally, while Docker publishes the port
+on `127.0.0.1`. Open the matching local port in the browser.
+
 ## How it works
 
-`server.py` incrementally reads session transcripts, extracts lifecycle and usage
+Python lives in `src/overwatch/`; the dashboard is packaged from
+`src/overwatch/web/`, including its local fonts and icons. `server.py` remains a
+repository-root launcher for existing workflows, while the installed
+`overwatch` command starts the same application.
+
+The Python modules separate usage accounting (`usage.py`), Codex and Claude
+transcript readers (`providers/codex.py`, `providers/claude.py`), metadata
+(`metadata.py`), sample observations (`demo.py`), refresh coordination
+(`observer.py`), HTTP serving (`http.py`), and command-line startup (`cli.py`).
+
+The HTTP server incrementally reads session transcripts, extracts lifecycle and usage
 events, and serves `/api/snapshot?provider=codex` and
 `/api/snapshot?provider=claude` alongside an explicit list of static assets.
 `/api/snapshot` defaults to Codex for compatibility. Independent refresh workers
@@ -86,9 +117,9 @@ subagents come from `<session>/subagents/agent-<agent>.jsonl`. Subagents retain
 separate identities and usage, linked to their parent session. The reader uses
 only transcript metadata and event types, without retaining message contents.
 
-`app.js` polls the snapshot endpoint and renders the dashboard. `theme.js` and
-`theme.css` manage appearance. All assets, including the wordmark font, are
-served locally.
+`web/app.js` polls the snapshot endpoint and renders the dashboard. `web/theme.js`
+and `web/theme.css` manage appearance. All assets, including the wordmark font,
+are served locally.
 
 ### Status and usage limits
 
@@ -120,7 +151,7 @@ internal; unfamiliar versions may yield incomplete observations.
 
 ## Privacy and boundaries
 
-The server binds to **127.0.0.1**, restricts requests to local same-origin access,
+The server binds to **127.0.0.1** by default, restricts requests to local same-origin access,
 and accepts no mutation endpoints. It never spawns, resumes, messages, or
 controls agents, and does not modify either platform's logs or databases.
 
@@ -131,10 +162,23 @@ external font loading, analytics, or telemetry.
 
 ## Development
 
+Use `make` or `make help` to list common development commands. `make install`
+creates `.venv` and installs an editable copy; `make dev` starts the server and
+`make demo` starts it with sample data. Pass options through `ARGS`.
+
 Run the behavioral tests from the repository root:
 
 ```sh
-python3 -m unittest -v test_dashboard
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
+
+For an editable development install:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e .
+overwatch --demo
 ```
 
 Tests use disposable logs and databases plus a temporary loopback server. They
@@ -142,3 +186,26 @@ cover usage attribution, partial writes, stale status, data minimization,
 immutable database access, provider isolation, Claude streaming usage and
 subagent attribution, static asset serving, and read-only HTTP boundaries.
 They never read real sessions or contact model providers.
+
+## System service
+
+To install Overwatch as a system-wide service for your account, run this from a
+terminal with administrator authentication available:
+
+```sh
+make install-system
+```
+
+The installer places its virtual environment under `/opt/overwatch`, adds the
+launcher at `/usr/local/bin/overwatch`, and installs
+`/etc/systemd/system/overwatch.service`. The service runs as your user, reads
+your Codex and Claude logs, and serves on `127.0.0.1:8765`. If an existing user
+service is present, the installer removes it only after the new system service
+starts and passes its health check.
+
+Check or restart the system service with:
+
+```sh
+sudo systemctl status overwatch
+sudo systemctl restart overwatch
+```
