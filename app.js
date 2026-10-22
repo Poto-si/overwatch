@@ -100,6 +100,8 @@ function renderTable(agents) {
     const indent = node("span", "tree-indent");
     indent.style.width = Math.min(depth, 7) * 18 + "px";
     flex.append(indent);
+    const toggleSlot = node("span", "tree-toggle-slot");
+    flex.append(toggleSlot);
     if (offspring.length) {
       const toggle = node("button", "tree-toggle", state.collapsed.has(agent.id) ? "▸" : "▾");
       toggle.type = "button";
@@ -111,7 +113,7 @@ function renderTable(agents) {
         state.collapsed.has(agent.id) ? state.collapsed.delete(agent.id) : state.collapsed.add(agent.id);
         render();
       });
-      flex.append(toggle);
+      toggleSlot.append(toggle);
     }
     flex.append(node("span", "agent-icon" + (agent.parent_id ? " child" : ""), agent.parent_id ? "↳" : "◈"));
     const text = node("div", "agent-text");
